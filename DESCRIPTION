@@ -36,4 +36,4 @@ Suggests:
     knitr
 VignetteBuilder: knitr
 URL: https://github.com/ddemateis/dlimIM
-
+BugReports: https://github.com/ddemateis/dlimIM/issues
