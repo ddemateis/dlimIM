@@ -8,4 +8,4 @@ The dlimIM package estimates a distributed lag model with modification by a mult
 Installation
 Install from GitHub:
 
-remotes::install_github("ddemateis/dlim")
+remotes::install_github("ddemateis/dlimIM")
