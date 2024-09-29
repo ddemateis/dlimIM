@@ -31,7 +31,6 @@
 sim_data_m <- function(x, L=NULL, M, w, noise=1, type=2, SNR,
                        ncovariates=0, gamma,
                        family="gaussian", sf=1){
-  source("Functions/sim_dlf_m.R")
   #create lagged structure
   if(is.vector(x)){
     X <- Lag(x,0:L)[-c(1:L),]
@@ -46,9 +45,8 @@ sim_data_m <- function(x, L=NULL, M, w, noise=1, type=2, SNR,
   m_star <- M%*%w
 
   #Create Betas
-  width=5
   if(family == "gaussian"){
-    betas <- sim_dlf_m(L,m_star,type,width)
+    betas <- sim_dlf_m(L,m_star,type)
     betas_cumul <- colSums(betas)
     y_mean <- colSums(t(X)*betas)
 
@@ -58,7 +56,7 @@ sim_data_m <- function(x, L=NULL, M, w, noise=1, type=2, SNR,
       noise <- sd(y_mean)/SNR
     }
   }else if(family == "binomial"){
-    betas <- sim_dlf_m(L,m_star,type,width)
+    betas <- sim_dlf_m(L,m_star,type)
     betas_cumul <- colSums(betas)
     y_mean <- colSums(t(X)*betas)
   }

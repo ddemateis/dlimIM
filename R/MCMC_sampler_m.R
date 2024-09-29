@@ -34,8 +34,6 @@ MCMC_sampler_m <- function(x, y, trials = NULL, M, z, df_m, df_l, tau2, xi2,
                            var_select = FALSE, weights_prior = NULL, WAIC=FALSE,
                            prior_inclusions = NULL, family = "gaussian"){
 
-  source("Functions/updating_functions.R")
-
   #stop if a and b not provided but family is Gaussian
   if(family == "gaussian" & (is.null(a) & is.null(b))){
     stop("Family is Gaussian but hyperparameters for error variance not provided. Please provide values for arguments a and b.")

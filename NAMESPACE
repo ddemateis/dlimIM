@@ -3,6 +3,7 @@
 export(MCMC_sampler_m)
 export(plot_bdlim)
 export(pred_m)
+export(scale_01)
 export(sim_data_m)
 export(sim_dlf_m)
 import(Matrix)
