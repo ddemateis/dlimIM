@@ -153,7 +153,7 @@ MCMC_sampler_m <- function(x, y, trials = NULL, M, z, df_m, df_l, tau2, xi2,
     ###MCMC iterating###
     for(s in 2:niter) {
       #set.seed(100223 + s)
-      print(s)
+      #print(s)
 
       # regular Gibbs update for reg coefs
       if(family == "gaussian"){
