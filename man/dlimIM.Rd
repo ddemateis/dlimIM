@@ -2,10 +2,19 @@
 % Please edit documentation in R/dlimIM.R
 \docType{package}
 \name{dlimIM}
+\alias{dlimIM-package}
 \alias{dlimIM}
 \title{dlimIM Package}
 \description{
 Collection of functions for fitting and interpreting distributed lag interaction models with index modification (DLIM-IM). A DLIM-IM regresses a scalar outcome on repeated measures of exposure and allows for modification by an index constructed from multiple candidate modifiers. Includes a MCMC_sampler_m() function for sampling from the posterior, pred_m() function for inference, and plotting functions for visualization.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/ddemateis/dlimIM}
+  \item Report bugs at \url{https://github.com/ddemateis/dlimIM/issues}
+}
+
 }
 \author{
 Danielle Demateis

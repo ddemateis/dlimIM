@@ -6,28 +6,23 @@
 \usage{
 pred_m(
   posterior_list,
-  chain = 1,
-  burnin,
   thin = 1,
   new_mods = NULL,
   m_star = NULL,
-  alpha = 0.05
+  alpha = 0.05,
+  sel = NULL
 )
 }
 \arguments{
 \item{posterior_list}{posterior samples  (class "\code{dlimIM}")}
-
-\item{chain}{if \code{posterior_list} has multiple chains, indicates which chain (class "\code{numeric}")}
-
-\item{burnin}{number of MCMC samples to remove as warm-up (class "\code{numeric}")}
-
-\item{thin}{number post-burn-in MCMC samples to thin by (class "\code{numeric}")}
 
 \item{new_mods}{matrix of new modifier values for prediction ((class "\code{matrix}"))}
 
 \item{m_star}{vector of new modifier index values for prediction (class "\code{numeric}")}
 
 \item{alpha}{significance level (class "\code{numeric}")}
+
+\item{sel}{selects which iterations of the MCMC sampler to use for inference}
 }
 \value{
 This function returns a list of predicted values and credible bounds \code{list}

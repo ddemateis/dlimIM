@@ -23,7 +23,8 @@ MCMC_sampler_m(
   weights_prior = NULL,
   WAIC = FALSE,
   prior_inclusions = NULL,
-  family = "gaussian"
+  family = "gaussian",
+  nchains = 1
 )
 }
 \arguments{
@@ -64,6 +65,8 @@ MCMC_sampler_m(
 \item{prior_inclusions}{vector of prior inclusion probabilities for each weight class "\code{numeric}")}
 
 \item{family}{family object specifying the distribution in fitting, either 'gaussian' or 'binomial' class "\code{character}")}
+
+\item{nchains}{number of chains}
 }
 \value{
 This function returns a list that is an object of class "\code{dlimIM}" with the following components

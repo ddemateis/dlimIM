@@ -8,8 +8,7 @@ plot_bdlim(
   x,
   pred = NULL,
   m_star,
-  burnin,
-  thin = 1,
+  sel,
   type,
   exp_times = NULL,
   time_pts = NULL,
@@ -23,9 +22,7 @@ plot_bdlim(
 
 \item{m_star}{vector of modifier index values (class "\code{numeric}")}
 
-\item{burnin}{number of MCMC samples to remove as warm-up (class "\code{numeric}")}
-
-\item{thin}{number post-burn-in MCMC samples to thin by (class "\code{numeric}")}
+\item{sel}{selects which iterations of the MCMC sampler to use for inference (class "\code{numeric}")}
 
 \item{type}{plot type options: "cumulative", "by_time", "by_modifier" (class "\code{character}")}
 

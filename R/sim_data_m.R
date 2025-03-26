@@ -2,6 +2,7 @@
 #' @description Simulate data to use with the \pkg{dlimIM} package. There are different weight modification scenarios to choose for simulation.
 #' @seealso \link[dlimIM]{sim_dlf_m}
 #' @export
+#' @importFrom MASS mvrnorm
 #' @param x a time series vector of length \code{n} or matrix of lagged exposures for \code{n} individuals (class "\code{numeric}", "\code{matrix}")
 #' @param L a vector of length 1 containing the number of lag terms. This is required if \code{x} is vector, and is not used if \code{x} is a matrix (class "\code{numeric}")
 #' @param M matrix containing modifying values for each individual (class "\code{matrix}")
@@ -9,7 +10,6 @@
 #' @param noise a vector of length 1 containing the standard deviation for a normal distribution with mean 0 used to add noise to the simulated response values. Must proivde if \code{SNR} is not provided (class "\code{numeric}")
 #' @param type a vector containing the number 1, 2, 3, or 4 for simulation modification type: none, linear, non-linear shift, non-linear shift with linear scale (class "\code{numeric}")
 #' @param SNR The signal-to-noise ratio. If \code{SNR} is provided, but \code{noise} is not, \code{noise} is reset to be the standard deviation of the response, before adding noise.   (class "\code{numeric}")
-#' @param ncovariates number of covariates to add to the model, numeric vector of length 1.
 #' @param gamma True coefficient for the main effect of the modifier (class "\code{numeric}")
 #' @param family Family object specifying the likelihood distribution for simulating. "gaussian" and "binomial" supported (class "\code{character}")
 #' @param sf scale factor for logistic simulation (class "\code{numeric}")
@@ -28,9 +28,8 @@
 #' \item{family}{Family object specifying the likelihood distribution used for simulating. (class "\code{character}")}
 
 
-sim_data_m <- function(x, L=NULL, M, w, noise=1, type=2, SNR,
-                       ncovariates=0, gamma,
-                       family="gaussian", sf=1){
+sim_data_m <- function(x, L=NULL, M, w, noise=1, type=4, SNR=1,
+                       gamma, family="gaussian", sf=1){
   #create lagged structure
   if(is.vector(x)){
     X <- Lag(x,0:L)[-c(1:L),]
@@ -40,6 +39,9 @@ sim_data_m <- function(x, L=NULL, M, w, noise=1, type=2, SNR,
     X <- x
     M <- M
   }
+
+  #set number of covariates
+  ncovariates=3
 
   #create weighted modifier
   m_star <- M%*%w
@@ -61,11 +63,10 @@ sim_data_m <- function(x, L=NULL, M, w, noise=1, type=2, SNR,
     y_mean <- colSums(t(X)*betas)
   }
 
-
-
   #Create gammas and covariates
   if(ncovariates!=0){
-    Z <- matrix(rnorm(nrow(X)*(ncovariates)), ncol = ncovariates)
+    Sigma <- matrix(c(1,0.5, 0.6, 0.5, 1, 0.7, 0.6, 0.7, 1), nrow=3) #correlation matrix
+    Z <- mvrnorm(n=nrow(X), mu=rep(mean(X[,1]), ncovariates), Sigma = Sigma)
     mod_Z <- cbind(M,Z)
     if(family == "gaussian"){
       gammas <- c(gamma,matrix(rnorm(ncovariates),ncol=1))

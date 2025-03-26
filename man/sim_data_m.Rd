@@ -10,9 +10,8 @@ sim_data_m(
   M,
   w,
   noise = 1,
-  type = 2,
-  SNR,
-  ncovariates = 0,
+  type = 4,
+  SNR = 1,
   gamma,
   family = "gaussian",
   sf = 1
@@ -32,8 +31,6 @@ sim_data_m(
 \item{type}{a vector containing the number 1, 2, 3, or 4 for simulation modification type: none, linear, non-linear shift, non-linear shift with linear scale (class "\code{numeric}")}
 
 \item{SNR}{The signal-to-noise ratio. If \code{SNR} is provided, but \code{noise} is not, \code{noise} is reset to be the standard deviation of the response, before adding noise.   (class "\code{numeric}")}
-
-\item{ncovariates}{number of covariates to add to the model, numeric vector of length 1.}
 
 \item{gamma}{True coefficient for the main effect of the modifier (class "\code{numeric}")}
 

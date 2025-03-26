@@ -7,8 +7,7 @@
 #' @param x posterior samples  (class "\code{dlimIM}")
 #' @param pred prediction object from \link[dlimIM]{pred_m}
 #' @param m_star vector of modifier index values (class "\code{numeric}")
-#' @param burnin number of MCMC samples to remove as warm-up (class "\code{numeric}")
-#' @param thin number post-burn-in MCMC samples to thin by (class "\code{numeric}")
+#' @param sel selects which iterations of the MCMC sampler to use for inference (class "\code{numeric}")
 #' @param type plot type options: "cumulative", "by_time", "by_modifier" (class "\code{character}")
 #' @param exp_times labels for exposure time points (class "\code{character}")
 #' @param time_pts exposure time points to plot by when \code{plot_by = "by_time"} (class "\code{numeric}")
@@ -16,15 +15,13 @@
 #' @return This function returns a ggplot of specified \code{type}
 
 
-plot_bdlim <- function(x, pred = NULL, m_star, burnin,
-                       thin = 1, type,
-                       exp_times = NULL, time_pts=NULL,
+plot_bdlim <- function(x, pred = NULL, m_star, sel,
+                       type, exp_times = NULL, time_pts=NULL,
                        n_col = 3){
 
   if(is.null(pred)){
     pred <- pred_m(x,
-                   burnin = burnin,
-                   thin = thin,
+                   sel = sel,
                    m_star = m_star)
   }
 

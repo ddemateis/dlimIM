@@ -24,6 +24,7 @@
 #' @param WAIC TRUE to indicate computing WAIC class "\code{logical}")
 #' @param prior_inclusions vector of prior inclusion probabilities for each weight class "\code{numeric}")
 #' @param family family object specifying the distribution in fitting, either 'gaussian' or 'binomial' class "\code{character}")
+#' @param nchains number of chains
 #' @return This function returns a list that is an object of class "\code{dlimIM}" with the following components
 #' \item{posterior}{posterior samples including burn-in (class "\code{matrix}")}
 
@@ -32,7 +33,8 @@
 MCMC_sampler_m <- function(x, y, trials = NULL, M, z, df_m, df_l, tau2, xi2,
                            a=NULL, b=NULL, niter, burnin, model_type = "ns",
                            var_select = FALSE, weights_prior = NULL, WAIC=FALSE,
-                           prior_inclusions = NULL, family = "gaussian"){
+                           prior_inclusions = NULL, family = "gaussian",
+                           nchains = 1){
 
   #stop if a and b not provided but family is Gaussian
   if(family == "gaussian" & (is.null(a) & is.null(b))){
@@ -51,217 +53,220 @@ MCMC_sampler_m <- function(x, y, trials = NULL, M, z, df_m, df_l, tau2, xi2,
 
   x <- as.matrix(x)
   L <- ncol(x)
-  n_chains <- 1
+  posterior <- list()
 
-  #### MCMC initialization ###
+  for(chain in 1:nchains){
 
-   if(model_type=="linear"){
-     df_m <- 2
-   }
-    z <- as.data.frame(z)
-    z <- model.matrix(~ 0+.,model.frame(~ ., z, na.action=na.pass)) #handles factor covariates and missing values
+    #### MCMC initialization ###
 
-    #number of modifiers in model
-    n_m <- ncol(M) #make ncol(M) when all modifiers are covariates
+     if(model_type=="linear"){
+       df_m <- 2
+     }
+      z <- as.data.frame(z)
+      z <- model.matrix(~ 0+.,model.frame(~ ., z, na.action=na.pass)) #handles factor covariates and missing values
 
-    #set prior shapes for weights if NULL
-    if(is.null(weights_prior)){
-      shapes <- rep(1,n_m)
-    }else{
-      shapes <- weights_prior
-    }
+      #number of modifiers in model
+      n_m <- ncol(M) #make ncol(M) when all modifiers are covariates
 
-    #set prior inclusion probabilities for weights if NULL
-    if(is.null(prior_inclusions)){
-      prior_inclusions <- rep(0.5,n_m)
-    }
+      #set prior shapes for weights if NULL
+      if(is.null(weights_prior)){
+        shapes <- rep(1,n_m)
+      }else{
+        shapes <- weights_prior
+      }
 
-    #set delta
-    delta <- rep(0.2, n_m)
+      #set prior inclusion probabilities for weights if NULL
+      if(is.null(prior_inclusions)){
+        prior_inclusions <- rep(0.5,n_m)
+      }
 
-    #create sigma inverse matrix
-    #intercept, cross-basis coefficients, all modifiers, covariates
-    sigma_inv <- diag(c(0,rep(1/tau2,df_l*df_m),rep(1/xi2,n_m+ncol(z))))
+      #set delta
+      delta <- rep(0.2, n_m)
 
-    # create space for MCMC samples
-    n_coefs <- 1 + df_l*df_m + n_m + ncol(z) #intercept & cross-basis, modifier, covariate coefs
-    coef_samples <- matrix(NA, nrow=niter, ncol=n_coefs)
-    colnames(coef_samples) <- c("Intercept",
-                                paste0("CB", 1:(df_l*df_m)),
-                                paste0("Modifier", 1:n_m),
-                                paste0("Z", 1:ncol(z)))
-    UN_weight_samples <- matrix(NA, nrow=niter, ncol=ncol(M)) #un-normalized weights (i.e. a_l)
-    colnames(UN_weight_samples) <- paste0("UNweight", 1:ncol(M))
-    weight_samples <- matrix(NA, nrow=niter, ncol=ncol(M)) #normalized weights (i.e. a_l)
-    colnames(weight_samples) <- paste0("weight", 1:ncol(M))
-    if(family == "gaussian"){
-      sigma2_samples <- rep(NA, niter)
-      names(sigma2_samples) <- "sigma2"
-    }else if(family == "binomial"){
-      omega_samples <- matrix(NA, nrow=niter, ncol=nrow(x))
-      colnames(omega_samples) <- paste0("omega", 1:nrow(x))
-    }else{
-      stop("Family specified not supported.")
-    }
+      #create sigma inverse matrix
+      #intercept, cross-basis coefficients, all modifiers, covariates
+      sigma_inv <- diag(c(0,rep(1/tau2,df_l*df_m),rep(1/xi2,n_m+ncol(z))))
 
-
-    #create vector to help calculate WAIC
-    if(WAIC == TRUE){
-      # loglikmat <- matrix(NA, nrow=niter-burnin, ncol=nrow(x))
-      loglikmat <- data.frame(Sum_lik = numeric(nrow(x)),
-                              Sum_loglik = numeric(nrow(x)),
-                              Sum_loglik2 = numeric(nrow(x)))
-    }
-
-    # initialize parameters arbitrarily from prior
-    coef_samples[1,] <- sigma_inv%*%rnorm(ncol(sigma_inv)) #sampling from MVN(0,(sigma_inv)^}{-1})
-    UN_weight_samples[1,] <- rMVgamma(shapes = shapes) #draw from gamma(1,1)
-    weight_samples[1,] <- UN_weight_samples[1,]/sum(UN_weight_samples[1,])
-    if(family == "gaussian"){
-      sigma2_samples[1] <- 1/rgamma(1, shape = a, rate = b) #draw from IG(a,b)
-    }else if(family == "binomial"){
-      omega_samples[1,] <- rep(1, nrow(x))
-    }else{
-      stop("Family specified not supported.")
-    }
-
-    #create constant lag basis
-    B_lag <- ns(0:(L-1), df=df_l, intercept = T) #L+1xdf_l
-
-    #initial m_star to make basis
-    if(model_type=="ns"){
-      B_mod <- ns(rowMeans(M), df=df_m, intercept = T, Boundary.knots = c(0,1))
-    }else if(model_type == "linear"){
-      B_mod <- cbind(rep(1,length(y)), rowMeans(M))
-    }
-
-    #create design for the first time, update rest of times
-    U <- weight_create_update(UN_weight_sample = UN_weight_samples[1,],
-                              M = M,
-                              x = x,
-                              B_lag = B_lag,
-                              B_mod = B_mod,
-                              z = z,
-                              model_type = model_type)
-
-    #acceptance rate tracker
-    tracker <- vector(mode = "list", length = ncol(M))
-    delta_vec <- c()
-    acc_rate_vec <- c()
-
-    #profvis({ #profiling
-    ###MCMC iterating###
-    for(s in 2:niter) {
-      #set.seed(100223 + s)
-      #print(s)
-
-      # regular Gibbs update for reg coefs
+      # create space for MCMC samples
+      n_coefs <- 1 + df_l*df_m + n_m + ncol(z) #intercept & cross-basis, modifier, covariate coefs
+      coef_samples <- matrix(NA, nrow=niter, ncol=n_coefs)
+      colnames(coef_samples) <- c("Intercept",
+                                  paste0("CB", 1:(df_l*df_m)),
+                                  paste0("Modifier", 1:n_m),
+                                  paste0("Z", 1:ncol(z)))
+      UN_weight_samples <- matrix(NA, nrow=niter, ncol=ncol(M)) #un-normalized weights (i.e. a_l)
+      colnames(UN_weight_samples) <- paste0("UNweight", 1:ncol(M))
+      weight_samples <- matrix(NA, nrow=niter, ncol=ncol(M)) #normalized weights (i.e. a_l)
+      colnames(weight_samples) <- paste0("weight", 1:ncol(M))
       if(family == "gaussian"){
-        coef_samples[s,] = update_coefs(y = y,
-                                        U = U,
-                                        sigma_inv = sigma_inv,
-                                        sigma2 = sigma2_samples[s-1])
+        sigma2_samples <- rep(NA, niter)
+        names(sigma2_samples) <- "sigma2"
       }else if(family == "binomial"){
-        coef_samples[s,] = update_coefs_logit(y = y,
-                                              U = U,
-                                              sigma_inv = sigma_inv,
-                                              omegas = omega_samples[s-1,])
+        omega_samples <- matrix(NA, nrow=niter, ncol=nrow(x))
+        colnames(omega_samples) <- paste0("omega", 1:nrow(x))
       }else{
-        stop("Family not supported.")
+        stop("Family specified not supported.")
       }
 
 
+      #create vector to help calculate WAIC
+      if(WAIC == TRUE){
+        # loglikmat <- matrix(NA, nrow=niter-burnin, ncol=nrow(x))
+        loglikmat <- data.frame(Sum_lik = numeric(nrow(x)),
+                                Sum_loglik = numeric(nrow(x)),
+                                Sum_loglik2 = numeric(nrow(x)))
+      }
+
+      # initialize parameters arbitrarily from prior
+      coef_samples[1,] <- sigma_inv%*%rnorm(ncol(sigma_inv)) #sampling from MVN(0,(sigma_inv)^}{-1})
+      UN_weight_samples[1,] <- rMVgamma(shapes = shapes) #draw from gamma(1,1)
+      weight_samples[1,] <- UN_weight_samples[1,]/sum(UN_weight_samples[1,])
       if(family == "gaussian"){
-        #Gibbs update for sigma2
-        sigma2_samples[s] = update_sigma2(a = a,
-                                          b = b,
-                                          y = y,
-                                          U = U,
-                                          Psi = coef_samples[s,])
+        sigma2_samples[1] <- 1/rgamma(1, shape = a, rate = b) #draw from IG(a,b)
       }else if(family == "binomial"){
-        #Gibbs update for omegas
-        omega_samples[s,] = rpg(nrow(x), trials, U%*%coef_samples[s,])  #pgdraw(trials, U%*%coef_samples[s,]) #
+        omega_samples[1,] <- rep(1, nrow(x))
       }else{
-        stop("Family not supported.")
+        stop("Family specified not supported.")
       }
 
-      if(s > 500 & s <= burnin){
-        acc_rate <- unlist(lapply(tracker, calc_acc_rate))
-        tracker <- update_tracker(tracker)
-      }else{
-        acc_rate <- rep(NA, ncol(UN_weight_samples))
+      #create constant lag basis
+      B_lag <- ns(0:(L-1), df=df_l, intercept = T) #L+1xdf_l
+
+      #initial m_star to make basis
+      if(model_type=="ns"){
+        B_mod <- ns(rowMeans(M), df=df_m, intercept = T, Boundary.knots = c(0,1))
+      }else if(model_type == "linear"){
+        B_mod <- cbind(rep(1,length(y)), rowMeans(M))
       }
 
-      #MH step for un-normalized weights (doing last so that U does not need to be recalculated)
-      updated <-  update_UN_weights_MH(UN_weights = UN_weight_samples[s-1,],
-                                       delta = delta,
-                                       y = y,
-                                       sigma2 = sigma2_samples[s],
-                                       omegas = omega_samples[s,],
-                                       U_current = U,
-                                       Psi = coef_samples[s,],
-                                       x = x,
-                                       M = M,
-                                       z = z,
-                                       B_lag = B_lag,
-                                       B_mod = B_mod,
-                                       acc_rate = acc_rate,
-                                       model_type = model_type,
-                                       var_select = var_select,
-                                       tracker = tracker,
-                                       shapes = shapes,
-                                       prior_inclusions = prior_inclusions,
-                                       family = family)
-      UN_weight_samples[s,] <- updated$UN_weights_curr
-      delta <- updated$delta
-      if(sum(UN_weight_samples[s,]) != 0){
-        weight_samples[s,] <- UN_weight_samples[s,]/sum(UN_weight_samples[s,])
-      }else{
-        weight_samples[s,] <- UN_weight_samples[s,]
-      }
-      tracker <- updated$tracker
-
-      #remove
-      delta_vec <- rbind(delta_vec, delta)
-      acc_rate_vec <- rbind(acc_rate_vec, acc_rate)
-
-      #weight modifiers, update cross-basis, and design matrix with intercept
-      #I made this a function since I recreate U in the MH step, and I want changes to be consistent
-      U <- weight_create_update(UN_weight_sample = UN_weight_samples[s-1,],
+      #create design for the first time, update rest of times
+      U <- weight_create_update(UN_weight_sample = UN_weight_samples[1,],
                                 M = M,
                                 x = x,
                                 B_lag = B_lag,
                                 B_mod = B_mod,
                                 z = z,
-                                U = U,
                                 model_type = model_type)
 
-      #log likelihood matrix (iterations by observations)
-      if(WAIC & s > burnin){
-        # loglikmat[(s-burnin),] <- loglikelihood(y = y,
-        #                                         U = U,
-        #                                         Psi = coef_samples[s,],
-        #                                         sigma2 = sigma2_samples[s])
-        loglikvec <- loglikelihood(y = y,
-                                   U = U,
-                                   Psi = coef_samples[s,],
-                                   sigma2 = sigma2_samples[s])
-        loglikmat$Sum_lik <- exp(loglikvec) + loglikmat$Sum_lik
-        loglikmat$Sum_loglik <- loglikvec + loglikmat$Sum_loglik
-        loglikmat$Sum_loglik2 <- loglikvec^2 + loglikmat$Sum_loglik2
+      #acceptance rate tracker
+      tracker <- vector(mode = "list", length = ncol(M))
+      delta_vec <- c()
+      acc_rate_vec <- c()
+
+      #profvis({ #profiling
+      ###MCMC iterating###
+      for(s in 2:niter) {
+        #set.seed(100223 + s)
+        #print(s)
+
+        # regular Gibbs update for reg coefs
+        if(family == "gaussian"){
+          coef_samples[s,] = update_coefs(y = y,
+                                          U = U,
+                                          sigma_inv = sigma_inv,
+                                          sigma2 = sigma2_samples[s-1])
+        }else if(family == "binomial"){
+          coef_samples[s,] = update_coefs_logit(y = y,
+                                                U = U,
+                                                sigma_inv = sigma_inv,
+                                                omegas = omega_samples[s-1,])
+        }else{
+          stop("Family not supported.")
+        }
+
+
+        if(family == "gaussian"){
+          #Gibbs update for sigma2
+          sigma2_samples[s] = update_sigma2(a = a,
+                                            b = b,
+                                            y = y,
+                                            U = U,
+                                            Psi = coef_samples[s,])
+        }else if(family == "binomial"){
+          #Gibbs update for omegas
+          omega_samples[s,] = rpg(nrow(x), trials, U%*%coef_samples[s,])  #pgdraw(trials, U%*%coef_samples[s,]) #
+        }else{
+          stop("Family not supported.")
+        }
+
+        if(s > 500 & s <= burnin){
+          acc_rate <- unlist(lapply(tracker, calc_acc_rate))
+          tracker <- update_tracker(tracker)
+        }else{
+          acc_rate <- rep(NA, ncol(UN_weight_samples))
+        }
+
+        #MH step for un-normalized weights (doing last so that U does not need to be recalculated)
+        updated <-  update_UN_weights_MH(UN_weights = UN_weight_samples[s-1,],
+                                         delta = delta,
+                                         y = y,
+                                         sigma2 = sigma2_samples[s],
+                                         omegas = omega_samples[s,],
+                                         U_current = U,
+                                         Psi = coef_samples[s,],
+                                         x = x,
+                                         M = M,
+                                         z = z,
+                                         B_lag = B_lag,
+                                         B_mod = B_mod,
+                                         acc_rate = acc_rate,
+                                         model_type = model_type,
+                                         var_select = var_select,
+                                         tracker = tracker,
+                                         shapes = shapes,
+                                         prior_inclusions = prior_inclusions,
+                                         family = family)
+        UN_weight_samples[s,] <- updated$UN_weights_curr
+        delta <- updated$delta
+        if(sum(UN_weight_samples[s,]) != 0){
+          weight_samples[s,] <- UN_weight_samples[s,]/sum(UN_weight_samples[s,])
+        }else{
+          warning("All modifiers selected out of the model, which may lead to model instability.")
+          weight_samples[s,] <- UN_weight_samples[s,]
+        }
+        tracker <- updated$tracker
+
+        #remove
+        delta_vec <- rbind(delta_vec, delta)
+        acc_rate_vec <- rbind(acc_rate_vec, acc_rate)
+
+        #weight modifiers, update cross-basis, and design matrix with intercept
+        #I made this a function since I recreate U in the MH step, and I want changes to be consistent
+        U <- weight_create_update(UN_weight_sample = UN_weight_samples[s-1,],
+                                  M = M,
+                                  x = x,
+                                  B_lag = B_lag,
+                                  B_mod = B_mod,
+                                  z = z,
+                                  U = U,
+                                  model_type = model_type)
+
+        #log likelihood matrix (iterations by observations)
+        if(WAIC & s > burnin){
+          # loglikmat[(s-burnin),] <- loglikelihood(y = y,
+          #                                         U = U,
+          #                                         Psi = coef_samples[s,],
+          #                                         sigma2 = sigma2_samples[s])
+          loglikvec <- loglikelihood(y = y,
+                                     U = U,
+                                     Psi = coef_samples[s,],
+                                     sigma2 = sigma2_samples[s])
+          loglikmat$Sum_lik <- exp(loglikvec) + loglikmat$Sum_lik
+          loglikmat$Sum_loglik <- loglikvec + loglikmat$Sum_loglik
+          loglikmat$Sum_loglik2 <- loglikvec^2 + loglikmat$Sum_loglik2
+        }
+
       }
+      #})
+      #print(delta)
+      if(family == "gaussian"){
+        posterior[[chain]] <- cbind(coef_samples, weight_samples, UN_weight_samples, sigma2_samples)
+      }else if(family == "binomial"){
+        posterior[[chain]] <- cbind(coef_samples, weight_samples, UN_weight_samples)
+      }else{
 
-    }
-    #})
-    #print(delta)
-    if(family == "gaussian"){
-      posterior <- list(cbind(coef_samples, weight_samples, UN_weight_samples, sigma2_samples))
-    }else if(family == "binomial"){
-      posterior <- list(cbind(coef_samples, weight_samples, UN_weight_samples))
-    }else{
-
-    }
-  #}#end foreach
+      }
+  }#end chains loop
 
   if(WAIC){
     WAIC_calc <- compute_WAIC(loglikmat = loglikmat,
@@ -272,7 +277,7 @@ MCMC_sampler_m <- function(x, y, trials = NULL, M, z, df_m, df_l, tau2, xi2,
     # LOO_calc <- loo(loglikmat, r_eff = rel_n_eff)$estimates[3,1]
   }
 
-  names(posterior) <- paste0("chain",1:n_chains)
+  names(posterior) <- paste0("chain",1:nchains)
   attr(posterior, "model_type") <- model_type
   attr(posterior, "L") <- L
   attr(posterior, "df_l") <- df_l

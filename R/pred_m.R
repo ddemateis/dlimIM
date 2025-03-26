@@ -5,12 +5,10 @@
 #' @export
 #' @importFrom splines ns
 #' @param posterior_list posterior samples  (class "\code{dlimIM}")
-#' @param chain if \code{posterior_list} has multiple chains, indicates which chain (class "\code{numeric}")
-#' @param burnin number of MCMC samples to remove as warm-up (class "\code{numeric}")
-#' @param thin number post-burn-in MCMC samples to thin by (class "\code{numeric}")
 #' @param new_mods matrix of new modifier values for prediction ((class "\code{matrix}"))
 #' @param m_star vector of new modifier index values for prediction (class "\code{numeric}")
 #' @param alpha significance level (class "\code{numeric}")
+#' @param sel selects which iterations of the MCMC sampler to use for inference
 #' @return This function returns a list of predicted values and credible bounds \code{list}
 #' \item{betas_cumul}{cumulative effect estimates for each modifier index value (class "\code{numeric}")}
 #' \item{betas_LB}{lower bound for cumulative effect estimates for each modifier index value (class "\code{numeric}")}
@@ -21,23 +19,33 @@
 
 
 pred_m <- function(posterior_list,
-                   chain=1,
-                   burnin,
                    thin = 1,
                    new_mods = NULL,
                    m_star = NULL,
-                   alpha=0.05){
+                   alpha=0.05,
+                   sel = NULL){
 
   #set up
-  niter <- nrow(posterior_list[[chain]])
-  inf_idx <- seq(burnin, niter, thin)
-  posterior <- posterior_list[[chain]][inf_idx,]
+  if(is.null(sel)){
+    niter <- nrow(posterior_list[[1]])
+    inf_idx <- seq(burnin, niter, 1)
+  }else{
+    inf_idx <- sel
+  }
+
   L <- attr(posterior_list, "L")
   df_l <- attr(posterior_list, "df_l")
   df_m <- attr(posterior_list, "df_m")
   model_type <- attr(posterior_list, "model_type")
   M <- attr(posterior_list, "M")
   est_dlim <- list()
+
+  #combine chains
+  posterior <- c()
+  for(ch in 1:length(posterior_list)){
+    posterior <- rbind(posterior,
+                       posterior_list[[ch]][inf_idx,])
+  }
 
   #obtain indices of coefficients that are for the cross-basis
   idx <- grep("CB",colnames(posterior))#includes only cross-basis elements
