@@ -10,5 +10,6 @@ The dlimIM package estimates a distributed lag model with modification by a mult
 
 Installation
 Install from GitHub:
-
+```R
 remotes::install_github("ddemateis/dlimIM")
+```
