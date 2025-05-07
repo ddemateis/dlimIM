@@ -1,6 +1,6 @@
 This repository contains the source files for the dlimIM R package that implements distributed lag interaction models with index modification as described in the following paper:
 
-Demateis, D., India Aldana, S., Wright, R. O., Wright, R. Baccarelli, A., Colicino, E., Wilson, A., Keller, K. P. Distributed Lag Interaction Model with Index Modification. In press at _Biostatistics_. https://doi.org/10.48550/arXiv.2504.06363.
+Demateis, D., India Aldana, S., Wright, R. O., Wright, R., Baccarelli, A., Colicino, E., Wilson, A., Keller, K. P. Distributed Lag Interaction Model with Index Modification. In press at _Biostatistics_. https://doi.org/10.48550/arXiv.2504.06363.
 
 Simulation scripts from the manuscript can be found at https://github.com/ddemateis/dlimIM_simulations.
 
