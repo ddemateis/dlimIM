@@ -12,6 +12,7 @@ Install from GitHub:
 remotes::install_github("ddemateis/dlimIM")
 ```
 
-See the methods paper below:
-Demateis, D., India Aldana, S., Wright, R. O., Wright, R., Baccarelli, A., Colicino, E., Wilson, A., Keller, K. P. (2025). Distributed Lag Interaction Model with Index Modification. In press at _Biostatistics_. https://doi.org/10.48550/arXiv.2504.06363.
+References:
+
+* Demateis, D., India Aldana, S., Wright, R. O., Wright, R., Baccarelli, A., Colicino, E., Wilson, A., Keller, K. P. (2025). Distributed Lag Interaction Model with Index Modification. In press at _Biostatistics_. https://doi.org/10.48550/arXiv.2504.06363.
 
